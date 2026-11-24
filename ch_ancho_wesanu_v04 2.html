@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>CH'ANCH'O: WESANU — Prototype 03</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;font-family:system-ui,-apple-system,sans-serif;color:#fff}
+#game{position:fixed;inset:0}#hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:#101820cc;border:1px solid #ffffff30;border-radius:12px;padding:9px 12px;font-size:12px;backdrop-filter:blur(8px)}
+#mission{position:fixed;top:76px;left:50%;transform:translateX(-50%);text-align:center;min-width:210px}
+#controls{position:fixed;bottom:22px;left:18px;right:18px;display:flex;justify-content:space-between;align-items:end;pointer-events:none}
+.pad{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:5px;pointer-events:auto}
+.ctrl{border:1px solid #ffffff55;background:#142532bb;color:white;border-radius:12px;font-size:19px;touch-action:none}
+#up{grid-column:2;grid-row:1}#left{grid-column:1;grid-row:2}#down{grid-column:2;grid-row:2}#right{grid-column:3;grid-row:2}
+#action{width:70px;height:70px;border-radius:50%;pointer-events:auto;background:#e2a33a;color:#18202a;font-weight:800;border:2px solid #fff8}
+#hint{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;color:#dce6ebaa;white-space:nowrap}
+#start{position:fixed;inset:0;background:linear-gradient(#101820cc,#101820ee);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+#start .card{max-width:340px;background:#172734;border:1px solid #ffffff30;border-radius:20px;padding:24px}
+#start button{background:#e2a33a;color:#17212a;border:0;border-radius:12px;padding:13px 22px;font-weight:800;font-size:16px}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud"><div class="panel"><b>CH'ANCH'O: WESANU</b><br><span id="status">MISSION 01 · HOMEcoming</span></div><div class="panel">CASH <b id="cash">0 ETB</b></div></div>
+<div id="mission" class="panel">🟡 <b>MISSION 01 · HOMEcoming</b><br>Reach: Town Entrance</div>
+<div id="location" class="panel" style="position:fixed;top:126px;left:50%;transform:translateX(-50%);text-align:center;min-width:210px">📍 CURRENT AREA: Town Entrance</div>
+<div id="story" class="panel" style="position:fixed;left:50%;bottom:118px;transform:translateX(-50%);max-width:min(86vw,420px);text-align:center;display:none"></div>
+<button id="ride" class="panel" style="position:fixed;right:16px;bottom:112px;border:1px solid #d6ad36;color:#fff;background:#252a30;padding:12px 15px;border-radius:12px;font-weight:700">🚗 ENTER CAR</button>
+<div id="controls"><div class="pad">
+<button class="ctrl" id="up">▲</button><button class="ctrl" id="left">◀</button><button class="ctrl" id="down">▼</button><button class="ctrl" id="right">▶</button>
+</div><button id="action">RUN</button></div>
+<div id="hint">Touch controls · Landscape mode recommended · Follow the gold waypoint</div>
+<div id="start"><div class="card"><div style="font-size:12px;letter-spacing:3px;color:#e2a33a">OPEN WORLD · PROTOTYPE 03</div><h1 style="margin:8px 0">CH'ANCH'O:<br>WESANU</h1><p>Play as Wesanu. Explore 10 named Ch’anch’o locations in the story order and meet his friends.</p><button id="play">START GAME</button><p style="font-size:11px;color:#aebbc4">Schematic game map — landmark order follows your list; exact road geography is not verified.</p></div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9bb8c8);scene.fog=new THREE.Fog(0x9bb8c8,45,150);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.querySelector('#game').appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xddeeff,0x66704b,2));
+const sun=new THREE.DirectionalLight(0xffe2b2,2.2);sun.position.set(-25,40,20);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+const mat=(c,r=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(220,220),mat(0x71845a));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+function box(x,y,z,w,h,d,color){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(color));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
+// Main town road: schematic east-west route connecting the 10 story locations
+box(0,.025,0,220,.05,12,0x41474a);
+for(let x of [-110,110]) box(x,.04,0,1,.06,12,0x555b5e);
+for(let z of [-7,7])box(0,.08,z,220,.16,2,0xaaa69a);
+for(let x=-100;x<=100;x+=12) box(x,.06,0,5,.035,.12,0xe2d5a9);
+// Buildings beside the road; districts are schematic, not surveyed coordinates
+const palette=[0xc9b18a,0xd6c8ad,0xb9a17e,0xd8d0bc,0x9d927c,0xc1bcae];
+for(let side of [-1,1])for(let i=0;i<22;i++){
+ let x=-100+i*9+(Math.random()*2-1),z=side*(13+Math.random()*12),w=5+Math.random()*3,h=4+Math.random()*5,d=5+Math.random()*5;
+ let b=box(x,h/2,z,w,h,d,palette[i%palette.length]);
+ box(x,h+.12,z,w+.2,.22,d+.2,0x665b4d);
+ for(let wx of [-1.2,1.2]){let win=new THREE.Mesh(new THREE.BoxGeometry(.85,1.05,.08),mat(0x526b78,.3));win.position.set(x+wx,2.1,z-side*(d/2+.05));scene.add(win)}
+}
+// Trees
+for(let i=0;i<36;i++){let x=(Math.random()-.5)*190,z=(Math.random()-.5)*100;if(Math.abs(z)<12)continue;
+let trunk=new THREE.Mesh(new THREE.CylinderGeometry(.18,.25,2,7),mat(0x62452e));trunk.position.set(x,1,z);scene.add(trunk);
+let crown=new THREE.Mesh(new THREE.SphereGeometry(1.5,8,7),mat(0x3f6942));crown.position.set(x,3,z);crown.castShadow=true;scene.add(crown)}
+// Protagonist
+const wesanu=new THREE.Group();scene.add(wesanu);
+const skin=mat(0x8c563b),shirt=mat(0x263d50),pants=mat(0x252b32),shoe=mat(0x17191c);
+function part(g,geo,m,x,y,z){let o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;g.add(o);return o}
+part(wesanu,new THREE.CapsuleGeometry(.42,.75,5,8),shirt,0,1.25,0);
+part(wesanu,new THREE.SphereGeometry(.32,12,10),skin,0,2.05,0);
+part(wesanu,new THREE.BoxGeometry(.12,.12,.12),mat(0x111111),-.12,2.12,-.27);
+part(wesanu,new THREE.BoxGeometry(.12,.12,.12),mat(0x111111),.12,2.12,-.27);
+for(let s of [-1,1]){part(wesanu,new THREE.CapsuleGeometry(.15,.65,4,6),pants,s*.22,.48,0);part(wesanu,new THREE.BoxGeometry(.28,.16,.48),shoe,s*.22,.12,-.08)}
+wesanu.position.set(0,0,4);
+// Parked vehicle and simple town residents for this prototype build
+const car = new THREE.Group();
+const carBody = new THREE.Mesh(new THREE.BoxGeometry(3.4,1.05,1.7),mat(0x246b86));
+carBody.position.y=.85; car.add(carBody);
+const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8,.8,1.45),mat(0x183d50));
+roof.position.set(-.25,1.72,0); car.add(roof);
+for (const x of [-1.1,1.1]) for (const z of [-.9,.9]) {
+ const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.22,12),mat(0x171717));
+ wheel.rotation.x=Math.PI/2; wheel.position.set(x,.45,z); car.add(wheel);
+}
+car.position.set(-96,0,4.5); scene.add(car);
+const townspeople=[];
+for(let i=0;i<7;i++){
+ const person=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.9,4,8),mat([0x9b633d,0x2f6b4d,0x9a874c,0x6b537b][i%4]));
+ body.position.y=1.05; person.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.29,12,10),mat(0x8b5a3c));
+ head.position.y=1.85; person.add(head);
+ person.position.set(-78+i*24,0,(i%2?1:-1)*11); scene.add(person); townspeople.push(person);
+}
+// Ten named story locations in the order supplied by the player.
+const stops = [
+ {name:"Town Entrance", am:"የከተማው መግቢያ", x:-88, mission:"Homecoming", task:"Arrive in Ch’anch’o and meet Babtu.", line:"Babtu: “ወሳኑ! በደህና መጣህ!”"},
+ {name:"Total Neighborhood", am:"ቶታል ሰፈር", x:-68, mission:"Old Friends", task:"Meet Miki and hear what has changed.", line:"Miki: “ከሄድክ በኋላ ብዙ ነገር ተቀይሯል።”"},
+ {name:"Tsebel Neighborhood", am:"ፀበል ሰፈር", x:-48, mission:"The News", task:"Talk with Babtu about Jimmy’s gang.", line:"Babtu: “ጂሚ አሁን ከበፊቱ የበለጠ ኃይለኛ ሆኗል።”"},
+ {name:"Derba Roundabout", am:"ደርባ ማዞርያ", x:-28, mission:"A Warning", task:"Reach the roundabout and face Jimmy’s warning.", line:"Jimmy’s man: “ከጉዳያችን ራቅ!”"},
+ {name:"Mesalemiya", am:"መሳለሚያ", x:-8, mission:"Babtu in Trouble", task:"Find Babtu and help him get away.", line:"Babtu: “ወንድሜ፣ እዚህ አውጣኝ!”"},
+ {name:"Yabsira Hotel", am:"ያብስራ ሆቴል", x:12, mission:"Night Chase", task:"Escape the gang and regroup near the hotel.", line:"Miki: “ቶሎ እንሂድ፤ እየተከተሉን ነው!”"},
+ {name:"Family Cafe", am:"ፋሚሊ ካፌ", x:32, mission:"Harme", task:"Meet Harme at Family Cafe.", line:"Harme: “ወሳኑ፣ እንደገና ማየቴ ደስ ብሎኛል።”"},
+ {name:"Hospital Neighborhood", am:"ሆስፒታል ሰፈር", x:52, mission:"A Promise", task:"Walk with Harme and take her home safely.", line:"Wesanu: “ከእንግዲህ አልተውሽም።”"},
+ {name:"Deboka Keyet", am:"ደቦቃ ቀየት", x:72, mission:"Jimmy’s Secret", task:"Search the old neighborhood for evidence.", line:"Miki: “ይህ ማስረጃ ጂሚን ያጋልጠዋል።”"},
+ {name:"Germama", am:"ገርማማ", x:92, mission:"Final Confrontation", task:"Confront Jimmy; begin a new life with Harme.", line:"Babtu: “ፍቅር አሸነፈ… እኔ ግን ምሳ እፈልጋለሁ!”"}
+];
+const markers=[];
+for(let i=0;i<stops.length;i++){
+ const s=stops[i], marker=new THREE.Group(); marker.position.set(s.x,0,0); scene.add(marker);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(1.7,.18,8,32),mat(i===0?0xffc52e:0x42d6c8)); ring.rotation.x=Math.PI/2; ring.position.y=.18; marker.add(ring);
+ const beam=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,4,8),new THREE.MeshBasicMaterial({color:i===0?0xffd02f:0x42d6c8,transparent:true,opacity:.5})); beam.position.y=2.2; marker.add(beam);
+ const glow=new THREE.PointLight(i===0?0xffc52e:0x42d6c8,2,11); glow.position.y=2; marker.add(glow);
+ markers.push(marker);
+}
+let currentStop=0;
+wesanu.position.set(-101,0,0);
+wesanu.rotation.y=-Math.PI/2;
+let keys={},running=false,driving=false;
+document.querySelector('#ride').addEventListener('click',()=>{
+ const near=wesanu.position.distanceTo(car.position)<7;
+ if(driving){driving=false;wesanu.visible=true;document.querySelector('#ride').textContent='🚗 ENTER CAR';}
+ else if(near){driving=true;wesanu.visible=false;document.querySelector('#ride').textContent='🚶 EXIT CAR';}
+ else {document.querySelector('#status').textContent='MOVE CLOSER TO THE BLUE CAR';}
+});
+function setKey(k,v){keys[k]=v}
+const bind=(id,k)=>{let el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();setKey(k,true)});['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,()=>setKey(k,false)))};
+bind('up','up');bind('down','down');bind('left','left');bind('right','right');
+document.querySelector('#action').addEventListener('pointerdown',()=>running=true);document.querySelector('#action').addEventListener('pointerup',()=>running=false);
+addEventListener('keydown',e=>{if(e.key==='ArrowUp'||e.key==='w')keys.up=true;if(e.key==='ArrowDown'||e.key==='s')keys.down=true;if(e.key==='ArrowLeft'||e.key==='a')keys.left=true;if(e.key==='ArrowRight'||e.key==='d')keys.right=true;if(e.key==='Shift')running=true});
+addEventListener('keyup',e=>{if(['ArrowUp','w'].includes(e.key))keys.up=false;if(['ArrowDown','s'].includes(e.key))keys.down=false;if(['ArrowLeft','a'].includes(e.key))keys.left=false;if(['ArrowRight','d'].includes(e.key))keys.right=false;if(e.key==='Shift')running=false});
+const camOffset=new THREE.Vector3(0,5.2,10);
+function animate(){requestAnimationFrame(animate);let speed=running?.22:.12;let moved=false;
+if(keys.up){wesanu.translateZ(-speed);moved=true}if(keys.down){wesanu.translateZ(speed*.65);moved=true}
+if(keys.left)wesanu.rotation.y+=.045;if(keys.right)wesanu.rotation.y-=.045;
+if(moved){let target=wesanu.position.clone().add(new THREE.Vector3(0,1.4,0));let desired=camOffset.clone().applyQuaternion(wesanu.quaternion).add(wesanu.position);camera.position.lerp(desired,.12);camera.lookAt(target)}
+else{let desired=camOffset.clone().applyQuaternion(wesanu.quaternion).add(wesanu.position);camera.position.lerp(desired,.08);camera.lookAt(wesanu.position.clone().add(new THREE.Vector3(0,1.4,0)))}
+markers.forEach((m,i)=>{m.rotation.y+=.012;if(i!==currentStop)m.visible=i>currentStop});
+const active=stops[currentStop];
+if(active && Math.abs((driving?car.position.x:wesanu.position.x)-active.x)<3.5 && Math.abs((driving?car.position.z:wesanu.position.z))<7){
+ document.querySelector('#story').style.display='block';
+ document.querySelector('#story').innerHTML='<b>'+active.mission+'</b><br>'+active.line;
+ document.querySelector('#location').textContent='📍 '+active.name+' · '+active.am;
+ document.querySelector('#mission').innerHTML='🟡 <b>MISSION '+String(currentStop+1).padStart(2,'0')+' · '+active.mission+'</b><br>'+active.task;
+ document.querySelector('#cash').textContent=((currentStop+1)*500)+' ETB';
+ document.querySelector('#status').textContent='MISSION '+String(currentStop+1).padStart(2,'0')+' · '+active.name.toUpperCase();
+ currentStop++;
+ if(currentStop>=stops.length){
+  document.querySelector('#mission').innerHTML='🏆 <b>STORY CHAPTER COMPLETE</b><br>Wesanu and Harme begin a new life.';
+  document.querySelector('#status').textContent='CHAPTER 01 · COMPLETE';
+  document.querySelector('#story').innerHTML='<b>THE END · LOVE WINS</b><br>Jimmy’s secret is exposed. Wesanu and Harme choose a future together.';
+ }
+}
+renderer.render(scene,camera)}
+camera.position.set(-111,6,10);camera.lookAt(-101,1,0);animate();
+document.querySelector('#play').onclick=()=>document.querySelector('#start').style.display='none';
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script></body></html>
